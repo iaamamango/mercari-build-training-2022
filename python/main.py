@@ -1,5 +1,5 @@
 import os
-import json
+import sqlite3
 import logging
 import pathlib
 from fastapi import FastAPI, Form, HTTPException
@@ -9,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 logger = logging.getLogger("uvicorn")
 logger.level = logging.INFO
-images = pathlib.Path(__file__).parent.resolve() / "image"
 origins = [ os.environ.get('FRONT_URL', 'http://localhost:3000') ]
 app.add_middleware(
     CORSMiddleware,
@@ -19,26 +18,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+dbname = "mercari.sqlite3"
+conn = sqlite3.connect(dbname, check_same_thread=False)
+cur = conn.cursor()
+
 @app.get("/")
 def root():
     return {"message": "Hello, my first API!"}
-
-def write_json(new_data, filename="items.json"):
-        with open('items.json', 'r') as file:
-            file_data = json.load(file)
-        with open('items.json', 'w') as file:
-            file_data["items"].append(new_data)
-            json.dump(file_data, file)
-            
+    
 @app.post("/items")
 def add_item(name: str = Form(...), category: str = Form(...)):
-    write_json({"name": name, "category": category})
     logger.info(f"Receive item: {name}, {category}")
+    cur.execute("INSERT INTO items (name, category) VALUES (?,?)", (name, category))
+    conn.commit()
+    conn.close()
     return {"message": f"item received: {name}"}
 
 @app.get("/items")
 def get_item():
     logger.info(f"Get a list of items")
-    with open('items.json', 'r') as file:
-        items = json.load(file)
-    return items
+    cur.execute("SELECT id, name, category FROM items")
+    showcase = {"items": [{"id": item_id,  "name": name, "category": category} for (item_id, name, category) in cur] }
+    conn.close()
+    return showcase
+
+@app.get("/search")
+def search_item(keyword: str):
+    print(keyword)
+    logger.info(f"Search in the list of items")
+    cur.execute("SELECT * FROM items WHERE name LIKE (?)", (f'%{keyword}%',))
+    showcase = {"items": [{"name": name, "category": category} for (item_id, name, category) in cur] }
+    conn.close()
+    return showcase
