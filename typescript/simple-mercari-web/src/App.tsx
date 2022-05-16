@@ -10,7 +10,7 @@ function App() {
     <div>
       <header className='Title'>
         <p>
-          <b>Simple Mercari</b>
+          <b>Simple and Garish Mercari</b>
         </p>
       </header>
       <div>
