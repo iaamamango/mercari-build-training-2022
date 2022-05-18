@@ -1,6 +1,5 @@
 import os
 import sqlite3
-import hashlib
 import logging
 import pathlib
 from fastapi import FastAPI, Form, HTTPException
@@ -24,38 +23,30 @@ dbname = "mercari.sqlite3"
 conn = sqlite3.connect(dbname, check_same_thread=False)
 cur = conn.cursor()
 
-def hash_image(image_filepath):
-    with open(image_filepath, "rb") as f:
-        bytes = f.read()
-        read_hash = hashlib.sha256(bytes).hexdigest();
-        return (f'{read_hash}.jpg')
-
 @app.get("/")
 def root():
     return {"message": "Hello, my first API!"}
-    
+
 @app.post("/items")
-def add_item(name: str = Form(...), category_id: int = Form(...), image: str = Form(...)):
-    logger.info(f"Receive item: {name}, {category_id}, {image}")
-    cur.execute("INSERT INTO items (name, category_id, image) VALUES (?,?,?)", (name, category_id, hash_image(image)))
+def add_item(name: str = Form(...), category: str = Form(...), image: str = Form(...)):
+    logger.info(f"Receive item: {name}, {category}, {image}")
+    cur.execute("INSERT INTO items (name, category, image) VALUES (?,?,?)", (name, category, image))
     conn.commit()
     return {"message": f"item received: {name}"}
 
 @app.get("/items")
 def get_item():
     logger.info(f"Get a list of items")
-    cur.execute("SELECT items.id, items.name, category.name, items.image FROM items INNER JOIN category ON items.category_id=category.id")
-    showcase = {"items": [{"id": item_id,  "name": name, "category": category_name, "image": image} for (item_id, name, category_name, image) in cur] }
-    conn.close()
+    cur.execute("SELECT id, name, category, image FROM items")
+    showcase = {"items": [{"id": id,  "name": name, "category": category, "image": image} for (id, name, category, image) in cur] }
     return showcase
 
-@app.get("/items/{item_id}")
-def get_item(item_id=int):
-    print("Item id is " + item_id)
+@app.get("/items/{id}")
+def get_item(id:str):
+    print("Item id is " + id)
     logger.info(f"Get a list of items by id")
-    cur.execute("SELECT * FROM items INNER JOIN category ON items.category_id=category.id WHERE id IS " + item_id)
-    showcase = {"items": [{"id": item_id,  "name": name, "category": category_name, "image": image} for (item_id, name, category_name, image) in cur] }
-    conn.close()
+    cur.execute("SELECT * FROM items WHERE id IS " + id)
+    showcase = {"items": [{"id": id,  "name": name, "category": category, "image": image} for (id, name, category, image) in cur] }
     return showcase
 
 @app.get("/search")
@@ -63,8 +54,7 @@ def search_item(keyword: str):
     print(keyword)
     logger.info(f"Search in the list of items")
     cur.execute("SELECT * FROM items WHERE name LIKE (?)", (f'%{keyword}%',))
-    showcase = {"items": [{"name": name, "category": category, "image": image} for (item_id, name, category, image) in cur] }
-    conn.close()
+    showcase = {"items": [{"name": name, "category": category, "image": image} for (id, name, category, image) in cur] }
     return showcase
 
 
